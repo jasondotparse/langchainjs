@@ -37,7 +37,7 @@ export class S3Loader extends BaseDocumentLoader {
   
       const objectData = await new Promise<Buffer>((resolve, reject) => {
         const chunks: Buffer[] = [];
-        response.Body.on("data", (chunk: any) => chunks.push(chunk));
+        response.Body.on("data", (chunk: Buffer) => chunks.push(chunk));
         response.Body.on("end", () => resolve(Buffer.concat(chunks)));
         response.Body.on("error", reject);
       });
