@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { BaseDocumentLoader } from "./base.js";
+import { UnstructuredLoader } from './unstructured.js';
 // import { UnstructuredLoader } from "./unstructured.js";
 
 export class S3Loader extends BaseDocumentLoader {
@@ -9,8 +10,11 @@ export class S3Loader extends BaseDocumentLoader {
 
   key: string;
 
-  constructor(bucket: string, key: string) {
+  unstructuredAPIUrl: string;
+
+  constructor(bucket: string, key: string, unstructuredAPIUrl: string) {
     super();
+    this.unstructuredAPIUrl = unstructuredAPIUrl;
     this.bucket = bucket;
     this.key = key;
   }
@@ -48,9 +52,14 @@ export class S3Loader extends BaseDocumentLoader {
 
       console.log(`Downloaded file ${this.key} from S3 bucket ${this.bucket} to ${filePath}`);
 
-      // todo: use the unstructured loader to partition the file and return the documents
+      const unstructuredLoader = new UnstructuredLoader(
+        this.unstructuredAPIUrl,
+        filePath
+      );
 
-      return [];
+      const docs = await unstructuredLoader.load();
+
+      return docs;
     } catch (e) {
       console.error(e);
       throw new Error(
