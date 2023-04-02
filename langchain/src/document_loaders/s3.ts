@@ -21,43 +21,51 @@ export class S3Loader extends BaseDocumentLoader {
   public async load() {
     const { S3Client, GetObjectCommand } = await S3LoaderImports();
 
-    const s3Client = new S3Client();
-
-    const getObjectCommand = new GetObjectCommand({
-      Bucket: this.bucket,
-      Key: this.key,
-    });
-
-    const response = await s3Client.send(getObjectCommand);
-
-    const objectData = await new Promise<Buffer>((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      response.Body.on("data", (chunk: any) => chunks.push(chunk));
-      response.Body.on("end", () => resolve(Buffer.concat(chunks)));
-      response.Body.on("error", reject);
-    });
-
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 's3fileloader-'));
-
+  
     const filePath = path.join(tempDir, this.key);
 
-    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    try {
+      const s3Client = new S3Client();
 
-    fs.writeFileSync(
-      filePath, 
-      objectData
-    );
+      const getObjectCommand = new GetObjectCommand({
+        Bucket: this.bucket,
+        Key: this.key,
+      });
+  
+      const response = await s3Client.send(getObjectCommand);
+  
+      const objectData = await new Promise<Buffer>((resolve, reject) => {
+        const chunks: Buffer[] = [];
+        response.Body.on("data", (chunk: any) => chunks.push(chunk));
+        response.Body.on("end", () => resolve(Buffer.concat(chunks)));
+        response.Body.on("error", reject);
+      });
+  
+      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  
+      fs.writeFileSync(
+        filePath, 
+        objectData
+      );
+  
+      console.log(`Downloaded file ${this.key} from S3 bucket ${this.bucket} to ${filePath}`);
+    } catch {
+      throw new Error(`Failed to download file ${this.key} from S3 bucket ${this.bucket}.`);
+    }
 
-    console.log(`Downloaded file ${this.key} from S3 bucket ${this.bucket} to ${filePath}`);
-
-    const unstructuredLoader = new UnstructuredLoader(
-      this.unstructuredAPIURL,
-      filePath
-    );
-
-    const docs = await unstructuredLoader.load();
-
-    return docs;
+    try {
+      const unstructuredLoader = new UnstructuredLoader(
+        this.unstructuredAPIURL,
+        filePath
+      );
+  
+      const docs = await unstructuredLoader.load();
+  
+      return docs;
+    } catch {
+      throw new Error(`Failed to load file ${filePath} using unstructured loader.`);
+    }
   }
 }
 
