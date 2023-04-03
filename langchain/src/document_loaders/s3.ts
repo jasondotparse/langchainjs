@@ -1,8 +1,8 @@
-import fs from 'fs';
+import fsDefault from 'fs';
 import path from 'path';
 import os from 'os';
-import { BaseDocumentLoader } from "./base.js";
-import { UnstructuredLoader } from './unstructured.js';
+import { BaseDocumentLoader } from './base.js';
+import { UnstructuredLoader as UnstructuredLoaderDefault } from './unstructured.js';
 
 export class S3Loader extends BaseDocumentLoader {
   private bucket: string;
@@ -10,18 +10,30 @@ export class S3Loader extends BaseDocumentLoader {
   private key: string;
 
   private unstructuredAPIURL: string;
+  
+  _fs: typeof fsDefault;
 
-  constructor(bucket: string, key: string, unstructuredAPIURL: string) {
+  _UnstructuredLoader: typeof UnstructuredLoaderDefault;
+
+  constructor(
+    bucket: string, 
+    key: string, 
+    unstructuredAPIURL: string,
+    _fs = fsDefault, 
+    _UnstructuredLoader = UnstructuredLoaderDefault
+  ) {
     super();
     this.bucket = bucket;
     this.key = key;
     this.unstructuredAPIURL = unstructuredAPIURL;
+    this._fs = _fs;
+    this._UnstructuredLoader = _UnstructuredLoader;
   }
 
   public async load() {
     const { S3Client, GetObjectCommand } = await S3LoaderImports();
 
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 's3fileloader-'));
+    const tempDir = this._fs.mkdtempSync(path.join(os.tmpdir(), 's3fileloader-'));
   
     const filePath = path.join(tempDir, this.key);
 
@@ -42,9 +54,9 @@ export class S3Loader extends BaseDocumentLoader {
         response.Body.on("error", reject);
       });
   
-      fs.mkdirSync(path.dirname(filePath), { recursive: true });
+      this._fs.mkdirSync(path.dirname(filePath), { recursive: true });
   
-      fs.writeFileSync(
+      this._fs.writeFileSync(
         filePath, 
         objectData
       );
@@ -55,7 +67,7 @@ export class S3Loader extends BaseDocumentLoader {
     }
 
     try {
-      const unstructuredLoader = new UnstructuredLoader(
+      const unstructuredLoader = new this._UnstructuredLoader(
         this.unstructuredAPIURL,
         filePath
       );
